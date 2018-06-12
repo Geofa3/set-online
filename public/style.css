@@ -1,0 +1,19 @@
+#players {
+	text-align: center;
+}
+
+#page {
+	text-align:center;
+}
+
+#board {
+	text-align:center;
+}
+
+#create_game {
+	margin-right: 10px;
+}
+
+.set_card {
+	width: 45%;
+}

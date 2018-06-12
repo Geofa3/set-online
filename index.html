@@ -1,0 +1,391 @@
+<html>
+
+	<head>
+	
+	<title>Set online</title>
+	<!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">-->
+	<link rel="stylesheet" href="bootstrap.min.css">
+	<link rel="stylesheet" href="style.css">
+	
+	<script type="text/javascript">
+        //<!--
+                function ffalse()
+                {
+                        return false;
+                }
+                function ftrue()
+                {
+                        return true;
+                }
+                document.onselectstart = new Function ("return false");
+                if(window.sidebar)
+                {
+                        document.onmousedown = ffalse;
+                        document.onclick = ftrue;
+                }				
+        //-->
+        </script>
+	</head>
+	
+	<body>
+	
+		<div id="page">
+			<div class="container" style="text-align:center;">
+				<h1>Set!</h1>
+				<br />
+				<p id="loading"><i class="fa fa-spinner fa-spin" style="font-size:24px"></i> Loading...</p>
+				<button class="btn btn-lg btn-success" id="create_game" style="display: none;">Create game</button>
+				<br /><br />
+				Rules : <a href="https://en.wikipedia.org/wiki/Set_(game)">Wikipedia</a>
+			</div>
+		</div>
+		
+		<script src="/socket.io/socket.io.js"></script>
+        <script>
+			var socket = io.connect();
+
+			var pseudo;
+			var list_players = [];
+			var list_score = [];
+			var	board = [];
+			var	selection = [];
+			
+			var create_button = document.getElementById('create_game');
+			
+			// *************************** CHARGEMENT IMAGES ***************************
+
+			var page = document.getElementById('page');			
+			
+			
+			var cards = new Array();
+			
+				cards[80] = new Image();
+				cards[80].className = 'set_card';
+				cards[80].addEventListener('load', function() {
+					
+					var loading = document.getElementById('loading');
+					
+					var main_container = loading.parentNode;
+					
+					main_container.removeChild(loading);
+					
+					//Affichage des boutons
+					
+					
+					//Affichage de la page
+					var url_string = window.location.href;
+					var url = new URL(url_string);
+					var id = url.searchParams.get("id");
+					if (id != null) {
+						join_game(id);
+					} else {
+						display_button();
+					}
+				});
+				
+				for (var i=0; i<80; i++) {
+					cards[i] = new Image();
+					
+					var card_name = i.toString(3);
+					while(card_name.length<4) {
+						card_name = '0' + card_name;
+					}
+					cards[i].className = 'set_card';
+					cards[i].src = card_name + '.png';
+				}
+				
+				cards[80].src = '2222.png';
+			
+			
+			// *************************** GESTION AFFICHAGE ***************************
+			
+			function display_button() {
+				create_button.style.cssText = '';
+			}
+			
+			function join_game(id) {
+				pseudo = prompt('What is your name ?');
+				socket.emit('new_player', {pseudo: pseudo, id: id});
+				create_display();
+			}
+			
+			function create_display() {
+				page.innerHTML = '';
+				
+				//Création de la div pour les scores
+				var players_div = document.createElement('div');
+				players_div.className = 'container';
+				
+				var row1 = document.createElement('div');
+				row1.className = 'row alert alert-info';
+				row1.id = 'players';
+				
+				players_div.appendChild(row1);
+				
+				
+				
+				page.appendChild(players_div);
+				
+				//Ajout du bouton pour commencer
+				var begin_btn = document.createElement('button');
+				begin_btn.id = "begin_button";
+				begin_btn.className = 'btn btn-success';
+				
+				var begin_text = document.createTextNode('Begin !');
+				
+				begin_btn.appendChild(begin_text);
+				
+				var board = document.createElement('div');
+				board.id = 'board';
+				board.className = 'container';
+				
+				board.appendChild(begin_btn);
+				
+				page.appendChild(board);
+							
+				var begin_button = document.getElementById('begin_button');
+				begin_button.addEventListener('click', function() {
+					socket.emit('begin', 'beginning of the game');
+				});
+			}
+			
+			create_button.addEventListener('click', function() {
+				pseudo = prompt("What is your name ?");
+				socket.emit('new_game', pseudo);
+				create_display();
+			});
+
+			function update_list() {
+				var container = document.getElementById('players');
+				var length = list_players.length;
+
+				//On vide le container
+				container.innerHTML = '';
+				
+				var score_title = document.createElement('div');
+				score_title.className = 'col-sm-3';
+				score_title.style.cssText = 'font-weight:bold;';
+				var text_score = document.createTextNode('Scores');
+				score_title.appendChild(text_score);
+				container.appendChild(score_title);
+					
+				for (var i=0; i<length; i++) {
+					var player = document.createElement('div');
+					player.className = 'col-sm-3';
+					var text_player = document.createTextNode(list_players[i] + ' : ' + list_score[i]);
+					player.appendChild(text_player);
+					container.appendChild(player);
+				}
+				
+			}
+			
+			function update_selection() {
+				for (var i=0; i<board.length; i++) {
+					if(selection.indexOf(i) != -1) {
+						var card = document.getElementById('card' + i);
+						card.style = 'border: solid 2px red';
+					} else {
+						var card = document.getElementById('card' + i);
+						card.style = 'border: none;';
+					}
+				}
+			}
+			
+			function add_selection(i) {
+			
+				var is_selected = selection.indexOf(i);
+				
+				if (is_selected != -1) {
+				
+					selection.splice(is_selected, 1);
+					
+				} else {
+					selection.push(i);
+					
+					if (selection.length > 3) {
+						selection.shift();
+					}
+					if (selection.length == 3) {
+						check_set();
+					}
+					
+				} 
+				
+				update_selection();
+		
+			}
+			
+			function update_board() {
+				for (var i=0; i<board.length; i++) {
+					var col = document.getElementById('col' + i);
+					col.innerHTML = '';
+					
+					var img = cards[parseInt(board[i],3)];
+					img.id = 'card' + i;
+					
+					col.appendChild(img);
+					
+					/*var img = document.createElement('img');
+					img.src= board[i] + '.png';
+					img.className = 'set_card';
+					img.id = 'card' + i;
+					col.appendChild(img);*/
+				}
+				
+				//On vide les emplacements vides
+				for (var j=board.length; j<12; j++) {
+					var col = document.getElementById('col' + j);
+					col.innerHTML = '';
+				}
+				
+				update_selection();
+			}
+			
+			function is_set(i, j, k) {
+				var res = parseInt(i) + parseInt(j) + parseInt(k);
+				var d1 = Math.floor(res/1000),
+					d2 = Math.floor((res%1000)/100),
+					d3 = Math.floor((res%100)/10),
+					d4 = res%10;
+				
+				return (d1%3 == 0 && d2%3 == 0 && d3%3 == 0 && d4%3 == 0);
+			}
+			
+			function check_set() {
+				//Ici on vérifie si on a un set ou pas
+				if(is_set(board[selection[0]], board[selection[1]], board[selection[2]])) {
+				
+					//On prévient le serveur
+					socket.emit('set', {pseudo: pseudo, set: selection[0] + ',' + selection[1] + ',' + selection[2]});
+					
+					//On supprime la sélection
+					selection.splice(0,3);
+					update_selection();
+				}
+			}
+			
+			function score_page() {
+				page.innerHTML = '';
+				
+				/*var title_game_over = document.createElement('h1');
+				title_game_over.appendChild(document.createTextNode('Game Over !'));
+				
+				var disp_list_score = document.createElement('ul');
+				disp_list_score.id = 'list_score';
+				
+				page.appendChild(title_game_over);
+				
+				page.appendChild(disp_list_score);
+				
+				var player_elem = [];
+				var disp_list = document.getElementById('list_score');
+				
+				for (var i=0; i<list_players; i++) {
+					player_elem[i] = document.createElement('li');
+					player_elem.innerHTML = list_players[i] + ' : ' + list_score[i];
+					
+					if (list_score[i] == Math.max(...list_score)) {
+						player_elem.style.cssText = 'font-weight: bold;';
+					}
+					disp_list.appendChild(player_elem[i]);
+				}*/
+				
+				
+				
+				page.innerHTML = '<h1>Game Over !</h1><ul>';
+				
+				for (i=0; i<list_players.length; i++) {
+					if (list_score[i] == Math.max(...list_score)) {
+						page.innerHTML += '<li style="font-weight: bold;">' + list_players[i] + ' : ' + list_score[i] + '</li>';
+					} else {
+						page.innerHTML += '<li>' + list_players[i] + ' : ' + list_score[i] + '</li>';
+					}
+				}
+			}
+			
+			// *************************** GESTION SOCKET ***************************
+				
+			socket.on('game_created', function(id) {
+				create_display();
+				alert('Share this link with your friends to invite them ! ' + window.location.href + '?id=' + id);
+			})
+			
+			socket.on('players', function(data) {
+				list_players = data.players.split(',');
+				list_score = data.scores.split(',');
+				update_list();
+			})
+			
+			socket.on('board', function(data) {
+				board = data.split(',');
+				update_board();
+			})
+			
+			socket.on('begin', function() {
+				//On met en place le board, sans les cartes
+			
+				var div_board = document.getElementById('board');
+				
+				div_board.innerHTML = '';
+				
+				var row1 = document.createElement('div');
+				row1.id = 'row1';
+				row1.className = 'row';
+				
+				for (var i=0; i<4; i++) {
+					var col = document.createElement('div');
+					col.id = 'col' + i;
+					col.className = 'col-sm-3';
+					row1.appendChild(col);
+				}
+				
+				div_board.appendChild(row1);
+				
+				var row2 = document.createElement('div');
+				row2.id = 'row2';
+				row2.className = 'row';
+				
+				for (var i=4; i<8; i++) {
+					var col = document.createElement('div');
+					col.id = 'col' + i;
+					col.className = 'col-sm-3';
+					row2.appendChild(col);
+				}
+				
+				div_board.appendChild(row2);
+				
+				var row3 = document.createElement('div');
+				row3.id = 'row3';
+				row3.className = 'row';
+				
+				for (var i=8; i<12; i++) {
+					var col = document.createElement('div');
+					col.id = 'col' + i;
+					col.className = 'col-sm-3';
+					row3.appendChild(col);
+				}
+				
+				div_board.appendChild(row3);
+				
+				//Ajout des listener
+				for (var i=0; i<12; i++) {
+					(function(){ //Avec une closure, parce que c'est cool, et parce qu'on a pas le choix aussi...
+						var currentI = i;
+						var col = document.getElementById('col' + currentI);
+						col.addEventListener('click', function() {
+							add_selection(currentI);
+						});
+					})();
+				}
+			})
+			
+			socket.on('end', function(data) {
+				list_players = data.players.split(',');
+				list_score = data.scores.split(',');
+				
+				score_page();
+			})
+		</script>
+	</body>
+	
+</html>

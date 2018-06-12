@@ -1,0 +1,18 @@
+{
+    "name": "set",
+    "version": "0.2.0",
+	"scripts": {
+		"start": "node serveur.js",
+		"test": "echo \"Error\""
+	},
+	"engines": {
+    "node": "8.11.2"
+	},
+    "dependencies": {
+        "express": "~3.3.4",
+        "socket.io": "~1.2.1",
+        "ent": "~0.1.0"
+    },
+    "author": "Geoffrey",
+    "description": "Version en ligne du Set!"
+}
